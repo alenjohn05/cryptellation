@@ -5,25 +5,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/digital-feather/cryptellation/internal/adapters/cockroachdb"
 	"github.com/digital-feather/cryptellation/services/candlesticks/internal/adapters/db"
-	"github.com/digital-feather/cryptellation/services/candlesticks/internal/domain/candlestick"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/candlestick"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type DB struct {
 	client *gorm.DB
-	config cockroachdb.Config
+	config Config
 }
 
 func New() (*DB, error) {
-	var c cockroachdb.Config
+	var c Config
 	if err := c.Load().Validate(); err != nil {
 		return nil, fmt.Errorf("loading cockroachdb config: %w", err)
 	}
 
-	client, err := gorm.Open(postgres.Open(c.URL()), cockroachdb.DefaultGormConfig)
+	client, err := gorm.Open(postgres.Open(c.URL()), DefaultGormConfig)
 	if err != nil {
 		return nil, fmt.Errorf("opening cockroachdb connection: %w", err)
 	}

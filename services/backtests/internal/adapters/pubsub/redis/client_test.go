@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/event"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/status"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/tick"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/event"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/status"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/tick"
 	"github.com/stretchr/testify/suite"
 )
 

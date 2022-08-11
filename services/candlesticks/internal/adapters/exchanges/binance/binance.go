@@ -4,20 +4,19 @@ import (
 	"fmt"
 
 	client "github.com/adshao/go-binance/v2"
-	"github.com/digital-feather/cryptellation/internal/adapters/binance"
 	"github.com/digital-feather/cryptellation/services/candlesticks/internal/adapters/exchanges"
-	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/period"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/period"
 )
 
 const Name = "binance"
 
 type Service struct {
-	config binance.Config
+	config Config
 	client *client.Client
 }
 
 func New() (*Service, error) {
-	var c binance.Config
+	var c Config
 	if err := c.Load().Validate(); err != nil {
 		return nil, fmt.Errorf("loading binance config: %w", err)
 	}

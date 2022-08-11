@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/digital-feather/cryptellation/internal/controllers/grpc/genproto/candlesticks"
-	"github.com/digital-feather/cryptellation/pkg/utils"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/account"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/candlestick"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/event"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/order"
-	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/period"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/account"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/event"
+	candlesticksProto "github.com/digital-feather/cryptellation/services/candlesticks/pkg/client/proto"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/candlestick"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/pairs"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/period"
 )
 
 var (
@@ -163,13 +163,13 @@ func (bt *Backtest) CreateTickSubscription(exchangeName string, pairSymbol strin
 	return s, nil
 }
 
-func (bt *Backtest) AddOrder(ord order.Order, cs *candlesticks.Candlestick) error {
+func (bt *Backtest) AddOrder(ord order.Order, cs *candlesticksProto.Candlestick) error {
 	exchangeAccount, ok := bt.Accounts[ord.ExchangeName]
 	if !ok {
 		return fmt.Errorf("error with orders exchange %q: %w", ord.ExchangeName, ErrInvalidExchange)
 	}
 
-	baseSymbol, quoteSymbol, err := utils.ParsePairSymbol(ord.PairSymbol)
+	baseSymbol, quoteSymbol, err := pairs.ParsePairSymbol(ord.PairSymbol)
 	if err != nil {
 		return fmt.Errorf("error when parsing order pair symbol: %w", err)
 	}

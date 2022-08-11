@@ -3,20 +3,18 @@ package service
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"testing"
 	"time"
 
-	client "github.com/digital-feather/cryptellation/clients/go"
-	grpcUtils "github.com/digital-feather/cryptellation/internal/controllers/grpc"
-	"github.com/digital-feather/cryptellation/internal/controllers/grpc/genproto/backtests"
-	"github.com/digital-feather/cryptellation/internal/tests"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/adapters/vdb"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/adapters/vdb/redis"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/controllers"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/event"
+	"github.com/digital-feather/cryptellation/services/backtests/internal/controllers/grpc"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/client"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/client/proto"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/event"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
 )
 
 func TestServiceSuite(t *testing.T) {
@@ -30,35 +28,32 @@ func TestServiceSuite(t *testing.T) {
 type ServiceSuite struct {
 	suite.Suite
 	vdb       vdb.Port
-	client    backtests.BacktestsServiceClient
+	client    proto.BacktestsServiceClient
 	closeTest func() error
 }
 
 func (suite *ServiceSuite) SetupSuite() {
-	defer tests.TempEnvVar("CRYPTELLATION_BACKTESTS_GRPC_URL", ":9004")()
+	defer tmpEnvVar("CRYPTELLATION_BACKTESTS_GRPC_URL", ":9004")()
 
 	a, closeApplication, err := NewMockedApplication()
 	suite.Require().NoError(err)
 
 	rpcUrl := os.Getenv("CRYPTELLATION_BACKTESTS_GRPC_URL")
-	grpcServer, err := grpcUtils.RunGRPCServerOnAddr(rpcUrl, func(server *grpc.Server) {
-		svc := controllers.NewGrpcController(a)
-		backtests.RegisterBacktestsServiceServer(server, svc)
-	})
-	suite.NoError(err)
+	grpcController := grpc.New(a)
+	suite.NoError(grpcController.RunOnAddr(rpcUrl))
 
-	ok := tests.WaitForPort(rpcUrl)
+	ok := waitForPort(rpcUrl)
 	if !ok {
 		log.Println("Timed out waiting for trainer gRPC to come up")
 	}
 
-	client, closeClient, err := client.NewBacktestsGrpcClient()
+	client, closeClient, err := client.New()
 	suite.Require().NoError(err)
 	suite.client = client
 
 	suite.closeTest = func() error {
 		err := closeClient()
-		go grpcServer.Stop() // TODO: remove goroutine
+		go grpcController.Stop() // TODO: remove goroutine
 		closeApplication()
 		return err
 	}
@@ -74,10 +69,10 @@ func (suite *ServiceSuite) TearDownSuite() {
 }
 
 func (suite *ServiceSuite) TestCreateBacktest() {
-	req := backtests.CreateBacktestRequest{
+	req := proto.CreateBacktestRequest{
 		StartTime: time.Unix(0, 0).Format(time.RFC3339),
 		EndTime:   time.Unix(120, 0).Format(time.RFC3339),
-		Accounts: map[string]*backtests.Account{
+		Accounts: map[string]*proto.Account{
 			"exchange": {
 				Assets: map[string]float32{
 					"DAI": 1000,
@@ -99,10 +94,10 @@ func (suite *ServiceSuite) TestCreateBacktest() {
 }
 
 func (suite *ServiceSuite) TestBacktestSubscribeToEvents() {
-	req := backtests.CreateBacktestRequest{
+	req := proto.CreateBacktestRequest{
 		StartTime: time.Unix(0, 0).Format(time.RFC3339),
 		EndTime:   time.Unix(120, 0).Format(time.RFC3339),
-		Accounts: map[string]*backtests.Account{
+		Accounts: map[string]*proto.Account{
 			"exchange": {
 				Assets: map[string]float32{
 					"DAI": 1000,
@@ -114,7 +109,7 @@ func (suite *ServiceSuite) TestBacktestSubscribeToEvents() {
 	resp, err := suite.client.CreateBacktest(context.Background(), &req)
 	suite.Require().NoError(err)
 
-	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &backtests.SubscribeToBacktestEventsRequest{
+	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &proto.SubscribeToBacktestEventsRequest{
 		Id:           resp.Id,
 		ExchangeName: "exchange",
 		PairSymbol:   "ETH-DAI",
@@ -129,10 +124,10 @@ func (suite *ServiceSuite) TestBacktestSubscribeToEvents() {
 }
 
 func (suite *ServiceSuite) TestBacktestListenEvents() {
-	req := backtests.CreateBacktestRequest{
+	req := proto.CreateBacktestRequest{
 		StartTime: time.Unix(0, 0).Format(time.RFC3339),
 		EndTime:   time.Unix(120, 0).Format(time.RFC3339),
-		Accounts: map[string]*backtests.Account{
+		Accounts: map[string]*proto.Account{
 			"exchange": {
 				Assets: map[string]float32{
 					"DAI": 1000,
@@ -144,7 +139,7 @@ func (suite *ServiceSuite) TestBacktestListenEvents() {
 	resp, err := suite.client.CreateBacktest(context.Background(), &req)
 	suite.Require().NoError(err)
 
-	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &backtests.SubscribeToBacktestEventsRequest{
+	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &proto.SubscribeToBacktestEventsRequest{
 		Id:           resp.Id,
 		ExchangeName: "exchange",
 		PairSymbol:   "ETH-DAI",
@@ -194,14 +189,14 @@ func (suite *ServiceSuite) TestBacktestListenEvents() {
 	suite.checkEvent(stream, event.TypeIsStatus, "1970-01-01T00:02:00Z", "{\"finished\":true}")
 }
 
-func (suite *ServiceSuite) advance(stream backtests.BacktestsService_ListenBacktestClient, id uint64) {
-	err := stream.Send(&backtests.BacktestEventRequest{
+func (suite *ServiceSuite) advance(stream proto.BacktestsService_ListenBacktestClient, id uint64) {
+	err := stream.Send(&proto.BacktestEventRequest{
 		Id: id,
 	})
 	suite.Require().NoError(err)
 }
 
-func (suite *ServiceSuite) checkEvent(stream backtests.BacktestsService_ListenBacktestClient, evtType event.Type, time, content string) {
+func (suite *ServiceSuite) checkEvent(stream proto.BacktestsService_ListenBacktestClient, evtType event.Type, time, content string) {
 	evt, err := stream.Recv()
 	suite.Require().NoError(err)
 	suite.Require().Equal(evtType.String(), evt.Type)
@@ -209,17 +204,17 @@ func (suite *ServiceSuite) checkEvent(stream backtests.BacktestsService_ListenBa
 	suite.Require().Equal(content, evt.Content)
 }
 
-func (suite *ServiceSuite) passEvent(stream backtests.BacktestsService_ListenBacktestClient, evtType event.Type) {
+func (suite *ServiceSuite) passEvent(stream proto.BacktestsService_ListenBacktestClient, evtType event.Type) {
 	evt, err := stream.Recv()
 	suite.Require().NoError(err)
 	suite.Require().Equal(evtType.String(), evt.Type)
 }
 
 func (suite *ServiceSuite) TestBacktestOrders() {
-	req := backtests.CreateBacktestRequest{
+	req := proto.CreateBacktestRequest{
 		StartTime: time.Unix(0, 0).Format(time.RFC3339),
 		EndTime:   time.Unix(600, 0).Format(time.RFC3339),
-		Accounts: map[string]*backtests.Account{
+		Accounts: map[string]*proto.Account{
 			"exchange": {
 				Assets: map[string]float32{
 					"DAI": 1000,
@@ -231,14 +226,14 @@ func (suite *ServiceSuite) TestBacktestOrders() {
 	resp, err := suite.client.CreateBacktest(context.Background(), &req)
 	suite.Require().NoError(err)
 
-	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &backtests.SubscribeToBacktestEventsRequest{
+	_, err = suite.client.SubscribeToBacktestEvents(context.Background(), &proto.SubscribeToBacktestEventsRequest{
 		Id:           resp.Id,
 		ExchangeName: "exchange",
 		PairSymbol:   "ETH-DAI",
 	})
 	suite.Require().NoError(err)
 
-	_, err = suite.client.CreateBacktestOrder(context.Background(), &backtests.CreateBacktestOrderRequest{
+	_, err = suite.client.CreateBacktestOrder(context.Background(), &proto.CreateBacktestOrderRequest{
 		BacktestId:   resp.Id,
 		Type:         "market",
 		ExchangeName: "exchange",
@@ -248,7 +243,7 @@ func (suite *ServiceSuite) TestBacktestOrders() {
 	})
 	suite.Require().NoError(err)
 
-	accountsResp, err := suite.client.Accounts(context.Background(), &backtests.AccountsRequest{
+	accountsResp, err := suite.client.Accounts(context.Background(), &proto.AccountsRequest{
 		BacktestId: resp.Id,
 	})
 	suite.Require().NoError(err)
@@ -263,7 +258,7 @@ func (suite *ServiceSuite) TestBacktestOrders() {
 		suite.passEvent(stream, event.TypeIsStatus)
 	}
 
-	_, err = suite.client.CreateBacktestOrder(context.Background(), &backtests.CreateBacktestOrderRequest{
+	_, err = suite.client.CreateBacktestOrder(context.Background(), &proto.CreateBacktestOrderRequest{
 		BacktestId:   resp.Id,
 		Type:         "market",
 		ExchangeName: "exchange",
@@ -273,14 +268,14 @@ func (suite *ServiceSuite) TestBacktestOrders() {
 	})
 	suite.Require().NoError(err)
 
-	accountsResp, err = suite.client.Accounts(context.Background(), &backtests.AccountsRequest{
+	accountsResp, err = suite.client.Accounts(context.Background(), &proto.AccountsRequest{
 		BacktestId: resp.Id,
 	})
 	suite.Require().NoError(err)
 	suite.Require().Equal(float32(1001), accountsResp.Accounts["exchange"].Assets["DAI"])
 	suite.Require().Equal(float32(0), accountsResp.Accounts["exchange"].Assets["ETH"])
 
-	ordersResp, err := suite.client.Orders(context.Background(), &backtests.OrdersRequest{
+	ordersResp, err := suite.client.Orders(context.Background(), &proto.OrdersRequest{
 		BacktestId: resp.Id,
 	})
 	suite.Require().NoError(err)
@@ -301,4 +296,39 @@ func (suite *ServiceSuite) TestBacktestOrders() {
 	suite.Require().Equal("sell", ordersResp.Orders[1].Side)
 	suite.Require().Equal(float32(1), ordersResp.Orders[1].Quantity)
 	suite.Require().Equal(float32(2), ordersResp.Orders[1].Price)
+}
+
+func tmpEnvVar(key, value string) (reset func()) {
+	originalValue := os.Getenv(key)
+	os.Setenv(key, value)
+	return func() {
+		os.Setenv(key, originalValue)
+	}
+}
+
+func waitForPort(address string) bool {
+	waitChan := make(chan struct{})
+
+	go func() {
+		for {
+			conn, err := net.DialTimeout("tcp", address, time.Second)
+			if err != nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
+			if conn != nil {
+				waitChan <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	timeout := time.After(5 * time.Second)
+	select {
+	case <-waitChan:
+		return true
+	case <-timeout:
+		return false
+	}
 }

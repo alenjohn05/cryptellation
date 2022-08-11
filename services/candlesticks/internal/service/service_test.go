@@ -3,21 +3,19 @@ package service
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"testing"
 	"time"
 
-	client "github.com/digital-feather/cryptellation/clients/go"
-	grpcUtils "github.com/digital-feather/cryptellation/internal/controllers/grpc"
-	"github.com/digital-feather/cryptellation/internal/controllers/grpc/genproto/candlesticks"
-	"github.com/digital-feather/cryptellation/internal/tests"
 	"github.com/digital-feather/cryptellation/services/candlesticks/internal/adapters/db"
 	"github.com/digital-feather/cryptellation/services/candlesticks/internal/adapters/db/cockroach"
-	"github.com/digital-feather/cryptellation/services/candlesticks/internal/controllers"
-	"github.com/digital-feather/cryptellation/services/candlesticks/internal/domain/candlestick"
-	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/period"
+	"github.com/digital-feather/cryptellation/services/candlesticks/internal/controllers/grpc"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/client"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/client/proto"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/candlestick"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/models/period"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -35,41 +33,38 @@ func TestServiceSuite(t *testing.T) {
 type ServiceSuite struct {
 	suite.Suite
 	db        db.Port
-	client    candlesticks.CandlesticksServiceClient
+	client    proto.CandlesticksServiceClient
 	closeTest func() error
 }
 
 func (suite *ServiceSuite) SetupSuite() {
-	defer tests.TempEnvVar("COCKROACHDB_DATABASE", testDatabase)()
-	defer tests.TempEnvVar("CRYPTELLATION_CANDLESTICKS_GRPC_URL", ":9002")()
+	defer tmpEnvVar("COCKROACHDB_DATABASE", testDatabase)()
+	defer tmpEnvVar("CRYPTELLATION_CANDLESTICKS_GRPC_URL", ":9002")()
 
 	a, err := newMockApplication()
 	suite.Require().NoError(err)
 
 	rpcUrl := os.Getenv("CRYPTELLATION_CANDLESTICKS_GRPC_URL")
-	grpcServer, err := grpcUtils.RunGRPCServerOnAddr(rpcUrl, func(server *grpc.Server) {
-		svc := controllers.NewGrpcController(a)
-		candlesticks.RegisterCandlesticksServiceServer(server, svc)
-	})
-	suite.Require().NoError(err)
+	grpcController := grpc.New(a)
+	suite.NoError(grpcController.RunOnAddr(rpcUrl))
 
-	ok := tests.WaitForPort(rpcUrl)
+	ok := waitForPort(rpcUrl)
 	if !ok {
 		log.Println("Timed out waiting for trainer gRPC to come up")
 	}
 
-	client, closeClient, err := client.NewCandlesticksGrpcClient()
+	client, closeClient, err := client.New()
 	suite.Require().NoError(err)
 	suite.client = client
 
 	suite.closeTest = func() error {
-		go grpcServer.Stop() // TODO: remove goroutine
+		go grpcController.Stop() // TODO: remove goroutine
 		return closeClient()
 	}
 }
 
 func (suite *ServiceSuite) SetupTest() {
-	defer tests.TempEnvVar("COCKROACHDB_DATABASE", testDatabase)()
+	defer tmpEnvVar("COCKROACHDB_DATABASE", testDatabase)()
 
 	db, err := cockroach.New()
 	suite.Require().NoError(err)
@@ -88,7 +83,7 @@ func (suite *ServiceSuite) TestGetCandlesticksAllExistWithNoneInDB() {
 	// Provided before
 
 	// When a request is made
-	resp, err := suite.client.ReadCandlesticks(context.Background(), &candlesticks.ReadCandlesticksRequest{
+	resp, err := suite.client.ReadCandlesticks(context.Background(), &proto.ReadCandlesticksRequest{
 		ExchangeName: "mock_exchange",
 		PairSymbol:   "ETH-USDC",
 		PeriodSymbol: period.M1.String(),
@@ -110,7 +105,7 @@ func (suite *ServiceSuite) TestGetCandlesticksAllInexistantWithNoneInDB() {
 	// Provided before
 
 	// When a request is made
-	resp, err := suite.client.ReadCandlesticks(context.Background(), &candlesticks.ReadCandlesticksRequest{
+	resp, err := suite.client.ReadCandlesticks(context.Background(), &proto.ReadCandlesticksRequest{
 		ExchangeName: "mock_exchange",
 		PairSymbol:   "ETH-USDC",
 		PeriodSymbol: period.M1.String(),
@@ -143,7 +138,7 @@ func (suite *ServiceSuite) TestGetCandlesticksFromDBAndService() {
 	suite.Require().NoError(suite.db.CreateCandlesticks(context.Background(), cl))
 
 	// When a request is made
-	resp, err := suite.client.ReadCandlesticks(context.Background(), &candlesticks.ReadCandlesticksRequest{
+	resp, err := suite.client.ReadCandlesticks(context.Background(), &proto.ReadCandlesticksRequest{
 		ExchangeName: "mock_exchange",
 		PairSymbol:   "ETH-USDC",
 		PeriodSymbol: period.M1.String(),
@@ -190,7 +185,7 @@ func (suite *ServiceSuite) TestGetCandlesticksFromDBAndServiceWithUncomplete() {
 	suite.Require().NoError(suite.db.CreateCandlesticks(context.Background(), cl))
 
 	// When a request is made
-	resp, err := suite.client.ReadCandlesticks(context.Background(), &candlesticks.ReadCandlesticksRequest{
+	resp, err := suite.client.ReadCandlesticks(context.Background(), &proto.ReadCandlesticksRequest{
 		ExchangeName: "mock_exchange",
 		PairSymbol:   "ETH-USDC",
 		PeriodSymbol: period.M1.String(),
@@ -204,5 +199,40 @@ func (suite *ServiceSuite) TestGetCandlesticksFromDBAndServiceWithUncomplete() {
 	for i, cs := range resp.Candlesticks {
 		suite.Require().Equal(time.Unix(int64(60*i), 0).Format(time.RFC3339Nano), cs.Time)
 		suite.Require().Equal(float32(1234), cs.Close, i)
+	}
+}
+
+func tmpEnvVar(key, value string) (reset func()) {
+	originalValue := os.Getenv(key)
+	os.Setenv(key, value)
+	return func() {
+		os.Setenv(key, originalValue)
+	}
+}
+
+func waitForPort(address string) bool {
+	waitChan := make(chan struct{})
+
+	go func() {
+		for {
+			conn, err := net.DialTimeout("tcp", address, time.Second)
+			if err != nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
+			if conn != nil {
+				waitChan <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	timeout := time.After(5 * time.Second)
+	select {
+	case <-waitChan:
+		return true
+	case <-timeout:
+		return false
 	}
 }

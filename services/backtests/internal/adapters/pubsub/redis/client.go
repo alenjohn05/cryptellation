@@ -7,10 +7,9 @@ import (
 	"log"
 	"time"
 
-	config "github.com/digital-feather/cryptellation/internal/adapters/redis"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/event"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/status"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/tick"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/event"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/status"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/tick"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -23,7 +22,7 @@ type Client struct {
 }
 
 func New() (*Client, error) {
-	var c config.Config
+	var c Config
 	if err := c.Load().Validate(); err != nil {
 		return nil, fmt.Errorf("loading redis config: %w", err)
 	}
