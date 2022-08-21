@@ -10,15 +10,23 @@ services:
     tests:
         depends_on:
             - redis
-        build: .
+        build: ./tests
         image: cryptellation-livetests-tests
         container_name: cryptellation-livetests-tests-instance
         env_file:
-            - ../../../.env
+            - ../../.env
+        environment:
+            - REDIS_URL=redis:6379
         volumes:
-            - ../:/code
+            - gocache:/go/pkg/mod
+            - gobuild:/root/.cache/go-build
+            - .:/code
         networks:
             - cryptellation-livetests-tests-network
+
+volumes:
+    gocache:
+    gobuild:
 
 networks:
     cryptellation-livetests-tests-network:

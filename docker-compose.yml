@@ -16,11 +16,6 @@ services:
     volumes:
           - ./services/candlesticks/configs/candlesticks.sql:/docker-entrypoint-initdb.d/candlesticks.sql
           - ./services/exchanges/configs/exchanges.sql:/docker-entrypoint-initdb.d/exchanges.sql
-  redis:
-    image: redis:alpine
-    hostname: redis
-    networks:
-        - cryptellation-network
   nats:
     image: nats:alpine
     hostname: nats
@@ -29,6 +24,7 @@ services:
   exchanges:
     build:
       context: services/exchanges
+      dockerfile: build/package/Dockerfile
     volumes:
       - .:/code
       - /root/.cache/go-build
@@ -47,6 +43,7 @@ services:
   candlesticks:
     build:
       context: services/candlesticks
+      dockerfile: build/package/Dockerfile
     volumes:
       - .:/code
       - /root/.cache/go-build
@@ -62,9 +59,15 @@ services:
       - cockroachdb
     networks:
       - cryptellation-network
+  backtests-redis:
+    image: redis:alpine
+    hostname: redis
+    networks:
+        - cryptellation-network
   backtests:
     build:
       context: services/backtests
+      dockerfile: build/package/Dockerfile
     volumes:
       - .:/code
       - /root/.cache/go-build
@@ -74,16 +77,23 @@ services:
     env_file:
       - .env
     environment:
+      - REDIS_URL=backtests-redis:6379
       - SERVICE_PORT=9004
     depends_on:
-      - redis
+      - backtests-redis
       - nats
       - candlesticks
     networks:
       - cryptellation-network
+  ticks-redis:
+    image: redis:alpine
+    hostname: redis
+    networks:
+        - cryptellation-network
   ticks:
     build:
       context: services/ticks
+      dockerfile: build/package/Dockerfile
     volumes:
       - .:/code
       - /root/.cache/go-build
@@ -93,15 +103,22 @@ services:
     env_file:
       - .env
     environment:
+      - REDIS_URL=ticks-redis:6379
       - SERVICE_PORT=9005
     depends_on:
-      - redis
+      - ticks-redis
       - nats
     networks:
       - cryptellation-network
+  livetests-redis:
+    image: redis:alpine
+    hostname: redis
+    networks:
+        - cryptellation-network
   livetests:
     build:
       context: services/livetests
+      dockerfile: build/package/Dockerfile
     volumes:
       - .:/code
       - /root/.cache/go-build
@@ -111,9 +128,10 @@ services:
     env_file:
       - .env
     environment:
+      - REDIS_URL=livetests-redis:6379
       - SERVICE_PORT=9006
     depends_on:
-      - redis
+      - livetests-redis
     networks:
       - cryptellation-network
 networks:
