@@ -9,11 +9,10 @@ import (
 	"time"
 
 	app "github.com/digital-feather/cryptellation/services/backtests/internal/application"
-	cmdBacktest "github.com/digital-feather/cryptellation/services/backtests/internal/application/commands/backtest"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/backtest"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/domain/order"
 	"github.com/digital-feather/cryptellation/services/backtests/pkg/client/proto"
 	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/account"
+	"github.com/digital-feather/cryptellation/services/backtests/pkg/models/order"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 )
@@ -146,70 +145,44 @@ func (g GrpcController) SubscribeToBacktestEvents(ctx context.Context, req *prot
 }
 
 func (g GrpcController) CreateBacktestOrder(ctx context.Context, req *proto.CreateBacktestOrderRequest) (*proto.CreateBacktestOrderResponse, error) {
-	payload := cmdBacktest.CreateOrderPayload{
-		BacktestId:   uint(req.BacktestId),
-		Type:         order.Type(req.Type),
-		ExchangeName: req.ExchangeName,
-		PairSymbol:   req.PairSymbol,
-		Side:         order.Side(req.Side),
-		Quantity:     float64(req.Quantity),
+	order, err := order.FromProtoBuf(req.Order)
+	if err != nil {
+		return nil, err
 	}
 
-	err := g.application.Commands.Backtest.CreateOrder.Handle(ctx, payload)
+	err = g.application.Commands.Backtest.CreateOrder.Handle(ctx, uint(req.BacktestId), order)
 	return &proto.CreateBacktestOrderResponse{}, err
 }
 
-func (g GrpcController) Accounts(ctx context.Context, req *proto.AccountsRequest) (*proto.AccountsResponse, error) {
+func (g GrpcController) BacktestAccounts(ctx context.Context, req *proto.BacktestAccountsRequest) (*proto.BacktestAccountsResponse, error) {
 	accounts, err := g.application.Queries.Backtest.GetAccounts.Handle(ctx, uint(req.BacktestId))
 	if err != nil {
 		return nil, err
 	}
 
-	resp := proto.AccountsResponse{
+	resp := proto.BacktestAccountsResponse{
 		Accounts: make(map[string]*proto.Account, len(accounts)),
 	}
 
 	for exch, acc := range accounts {
-		resp.Accounts[exch] = toGrpcAccount(exch, acc)
+		resp.Accounts[exch] = acc.ToProtoBuf()
 	}
 
 	return &resp, nil
 }
 
-func toGrpcAccount(exchange string, account account.Account) *proto.Account {
-	assets := make(map[string]float32, len(account.Balances))
-	for asset, qty := range account.Balances {
-		assets[asset] = float32(qty)
-	}
-
-	return &proto.Account{
-		Assets: assets,
-	}
-}
-
-func (g GrpcController) Orders(ctx context.Context, req *proto.OrdersRequest) (*proto.OrdersResponse, error) {
+func (g GrpcController) BacktestOrders(ctx context.Context, req *proto.BacktestOrdersRequest) (*proto.BacktestOrdersResponse, error) {
 	orders, err := g.application.Queries.Backtest.GetOrders.Handle(ctx, uint(req.BacktestId))
 	if err != nil {
 		return nil, err
 	}
 
-	return &proto.OrdersResponse{
-		Orders: toGrpcOrders(orders),
-	}, nil
-}
-
-func toGrpcOrders(orders []order.Order) []*proto.Order {
 	formattedOrders := make([]*proto.Order, len(orders))
 	for i, o := range orders {
-		formattedOrders[i] = &proto.Order{
-			Time:         o.Time.Format(time.RFC3339),
-			Type:         o.Type.String(),
-			ExchangeName: o.ExchangeName,
-			PairSymbol:   o.PairSymbol,
-			Side:         o.Side.String(),
-			Quantity:     float32(o.Quantity),
-			Price:        float32(o.Price),
-		}
+		formattedOrders[i] = o.ToProtoBuf()
 	}
-	return formattedOrders
+
+	return &proto.BacktestOrdersResponse{
+		Orders: formattedOrders,
+	}, nil
 }
