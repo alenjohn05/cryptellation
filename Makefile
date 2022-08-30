@@ -1,17 +1,34 @@
 .PHONY: all
 .DEFAULT_GOAL := help
 
+SHELL=bash
+
 CLIENTS := $(shell find clients -mindepth 1 -maxdepth 1 -type d | xargs -I{} basename "{}")
 SERVICES := $(shell find services -mindepth 1 -maxdepth 1 -type d | xargs -I{} basename "{}")
 
-docker/build: ## Build docker images
-	@DOCKER_BUILDKIT=1 docker-compose build
+SHORT_COMMIT_SHA := $(shell git rev-parse --short HEAD)
 
-docker/run: docker/build ## Run with docker
-	@docker-compose up
+DOCKER_COMPOSE := docker-compose -p cryptellation $(foreach var,$(SERVICES),-f services/$(var)/docker-compose.yml)
+DOCKER_IMAGE_TAG=$(SHORT_COMMIT_SHA)
+DOCKER_BUILDKIT=1
+
+export
 
 docker/clean: ## Clean remaining docker containers
-	@docker-compose down
+	$(DOCKER_COMPOSE) down
+
+docker/build: ## Build docker images
+	$(DOCKER_COMPOSE) build
+
+docker/push: docker/build ## Push docker images
+	@git diff-index --quiet HEAD || (echo "ERROR: Some files have been modified. Please commit before pushing."; exit 1)
+	$(DOCKER_COMPOSE) push
+
+docker/run: docker/build ## Run with docker
+	$(DOCKER_COMPOSE) up
+
+docker/status: ## Display docker status
+	$(DOCKER_COMPOSE) ps
 
 clean: docker/clean ## Clean everything
 	@for CLIENT in $(CLIENTS); do $(MAKE) -C clients/$$CLIENT clean || exit $?; done
