@@ -7,10 +7,40 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/digital-feather/cryptellation/services/ticks/internal/application"
+	exchPorts "github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/controllers/grpc"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/controllers/http/health"
-	"github.com/digital-feather/cryptellation/services/ticks/internal/service"
+	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/exchanges"
+	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/exchanges/binance"
+	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/pubsub/nats"
+	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/vdb/redis"
 )
+
+func initApp() (*application.Application, error) {
+	// Set exchange services
+	binanceService, err := binance.New()
+	if err != nil {
+		return nil, err
+	}
+
+	// Regroup every exchange service
+	services := map[string]exchPorts.Adapter{
+		exchanges.BinanceName: binanceService,
+	}
+
+	db, err := redis.New()
+	if err != nil {
+		return nil, err
+	}
+
+	ps, err := nats.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return application.New(db, ps, services)
+}
 
 func run() int {
 	// Init health server
@@ -22,12 +52,11 @@ func run() int {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	// Init application
-	app, closeApp, err := service.NewApplication()
+	app, err := initApp()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "An error occured when %+v\n", fmt.Errorf("creating application: %w", err))
+		fmt.Fprintf(os.Stderr, "An error occured when %+v\n", fmt.Errorf("initializing application: %w", err))
 		return 255
 	}
-	defer closeApp()
 
 	// Init grpc server
 	grpcController := grpc.New(app)

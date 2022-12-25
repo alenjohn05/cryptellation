@@ -7,10 +7,47 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/digital-feather/cryptellation/services/backtests/internal/application"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/controllers/grpc"
 	"github.com/digital-feather/cryptellation/services/backtests/internal/controllers/http/health"
-	"github.com/digital-feather/cryptellation/services/backtests/internal/service"
+	"github.com/digital-feather/cryptellation/services/backtests/internal/infrastructure/db/redis"
+	"github.com/digital-feather/cryptellation/services/backtests/internal/infrastructure/pubsub/nats"
+	"github.com/digital-feather/cryptellation/services/candlesticks/pkg/client"
 )
+
+func initApp() (*application.Application, func(), error) {
+	// Init database client
+	db, err := redis.New()
+	if err != nil {
+		return nil, func() {}, err
+	}
+
+	// Init pubsub client
+	ps, err := nats.New()
+	if err != nil {
+		return nil, func() {}, err
+	}
+
+	// Init candlestick client
+	cs, closeCsClient, err := client.New()
+	if err != nil {
+		return nil, func() {}, err
+	}
+	defer func() {
+		// Cleanup candlestick client if there is an error
+		if err != nil {
+			_ = closeCsClient()
+		}
+	}()
+
+	// Init application
+	app, err := application.New(cs, db, ps)
+	if err != nil {
+		return nil, func() {}, err
+	}
+
+	return app, func() { _ = closeCsClient() }, nil
+}
 
 func run() int {
 	// Init health server
@@ -22,12 +59,12 @@ func run() int {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	// Init application
-	app, closeApp, err := service.NewApplication()
+	app, cleanupApp, err := initApp()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "An error occured when %+v\n", fmt.Errorf("creating application: %w", err))
+		fmt.Fprintf(os.Stderr, "An error occured when %+v\n", fmt.Errorf("initialize application: %w", err))
 		return 255
 	}
-	defer closeApp()
+	defer cleanupApp()
 
 	// Init grpc server
 	grpcController := grpc.New(app)
