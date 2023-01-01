@@ -5,16 +5,16 @@ import (
 	"log"
 	"time"
 
+	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/db"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/pubsub"
-	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/vdb"
 	"github.com/digital-feather/cryptellation/services/ticks/pkg/models/tick"
 )
 
 const checkInterval = 10 * time.Second
 
 type internalListener struct {
-	DB         vdb.Adapter
+	DB         db.Adapter
 	PubSub     pubsub.Adapter
 	Exchange   exchanges.Adapter
 	PairSymbol string
@@ -74,7 +74,7 @@ func (l *internalListener) setNextCheckTimeIfNeeded() (finished bool, err error)
 	ctx := context.Background()
 
 	if l.nextCheckTime.Before(time.Now()) {
-		count, err := l.DB.GetSymbolListenerCount(ctx, l.Exchange.Name(), l.PairSymbol)
+		count, err := l.DB.GetSymbolListenerSubscribers(ctx, l.Exchange.Name(), l.PairSymbol)
 		if err != nil {
 			return false, err
 		}

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/db"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/pubsub"
-	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/vdb"
 	"github.com/digital-feather/cryptellation/services/ticks/pkg/models/tick"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
@@ -21,13 +21,13 @@ func TestRegisterSuite(t *testing.T) {
 type RegisterSuite struct {
 	suite.Suite
 	operator Operator
-	vdb      *vdb.MockAdapter
+	vdb      *db.MockAdapter
 	ps       *pubsub.MockAdapter
 	exchange *exchanges.MockAdapter
 }
 
 func (suite *RegisterSuite) SetupTest() {
-	suite.vdb = vdb.NewMockAdapter(gomock.NewController(suite.T()))
+	suite.vdb = db.NewMockAdapter(gomock.NewController(suite.T()))
 	suite.ps = pubsub.NewMockAdapter(gomock.NewController(suite.T()))
 
 	suite.exchange = exchanges.NewMockAdapter(gomock.NewController(suite.T()))
@@ -42,7 +42,7 @@ func (suite *RegisterSuite) setMocksForFirstRegister(ctx context.Context) (chan 
 
 	// Set call to database for checking existing listener, and return the new count
 	suite.vdb.EXPECT().
-		IncrementSymbolListenerCount(ctx, "exchange", "PAIR_SYMBOL").
+		IncrementSymbolListenerSubscribers(ctx, "exchange", "PAIR_SYMBOL").
 		Return(int64(1), nil)
 
 	// Set call to exchange to listen to symbol
@@ -100,7 +100,7 @@ func (suite *RegisterSuite) setMocksForSecondRegister() context.Context {
 
 	// Set call to database for checking existing listener, and return the new count
 	suite.vdb.EXPECT().
-		IncrementSymbolListenerCount(ctx, "exchange", "PAIR_SYMBOL").
+		IncrementSymbolListenerSubscribers(ctx, "exchange", "PAIR_SYMBOL").
 		Return(int64(2), nil)
 
 	// Nothing more should happen

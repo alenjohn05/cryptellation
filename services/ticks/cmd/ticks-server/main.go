@@ -11,10 +11,10 @@ import (
 	exchPorts "github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/controllers/grpc"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/controllers/http/health"
+	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/db"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/exchanges/binance"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/pubsub/nats"
-	"github.com/digital-feather/cryptellation/services/ticks/internal/infrastructure/vdb/redis"
 )
 
 func initApp() (*application.Application, error) {
@@ -29,7 +29,7 @@ func initApp() (*application.Application, error) {
 		exchanges.BinanceName: binanceService,
 	}
 
-	db, err := redis.New()
+	db, err := db.Init()
 	if err != nil {
 		return nil, err
 	}

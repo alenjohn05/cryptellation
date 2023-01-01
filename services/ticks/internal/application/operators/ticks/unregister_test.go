@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/db"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/exchanges"
 	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/pubsub"
-	"github.com/digital-feather/cryptellation/services/ticks/internal/application/ports/vdb"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
 )
@@ -18,13 +18,13 @@ func TestUnregisterSuite(t *testing.T) {
 type UnregisterSuite struct {
 	suite.Suite
 	operator Operator
-	vdb      *vdb.MockAdapter
+	vdb      *db.MockAdapter
 	ps       *pubsub.MockAdapter
 	exchange *exchanges.MockAdapter
 }
 
 func (suite *UnregisterSuite) SetupTest() {
-	suite.vdb = vdb.NewMockAdapter(gomock.NewController(suite.T()))
+	suite.vdb = db.NewMockAdapter(gomock.NewController(suite.T()))
 	suite.ps = pubsub.NewMockAdapter(gomock.NewController(suite.T()))
 
 	suite.exchange = exchanges.NewMockAdapter(gomock.NewController(suite.T()))
@@ -38,7 +38,7 @@ func (suite *UnregisterSuite) setMocksForUnregister() context.Context {
 
 	// Set call to database for checking existing listener, and return the new count
 	suite.vdb.EXPECT().
-		DecrementSymbolListenerCount(ctx, "exchange", "PAIR_SYMBOL").
+		DecrementSymbolListenerSubscribers(ctx, "exchange", "PAIR_SYMBOL").
 		Return(int64(0), nil)
 
 	return ctx
