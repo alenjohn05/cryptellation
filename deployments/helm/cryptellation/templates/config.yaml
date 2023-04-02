@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: cryptellation-config
+data:
+    # Backtests
+    backtests.sqldb.database: "{{ .Values.services.backtests.sqldb.database }}"
+    backtests.health.port: "{{ .Values.services.backtests.health.port | default 9000 }}"
+    
+    # Candlesticks
+    candlesticks.sqldb.database: "{{ .Values.services.candlesticks.sqldb.database }}"
+    candlesticks.health.port: "{{ .Values.services.candlesticks.health.port | default 9000 }}"
+
+    # Exchanges
+    exchanges.sqldb.database: "{{ .Values.services.exchanges.sqldb.database }}"
+    exchanges.health.port: "{{ .Values.services.exchanges.health.port | default 9000 }}"
+
+    # Exchanges
+    ticks.sqldb.database: "{{ .Values.services.ticks.sqldb.database }}"
+    ticks.health.port: "{{ .Values.services.ticks.health.port | default 9000 }}"

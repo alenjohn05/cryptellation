@@ -1,0 +1,40 @@
+credentials:
+  exchanges:
+    binance:
+      api_key:
+      secret_key:
+  event_brokers:
+    nats:
+      host:
+      port:
+  datastores:
+    sqldb:
+      host:
+      port:
+      user:
+      password:
+services:
+  backtests:
+    image: digital-feather/cryptellation:latest
+    sqldb:
+      database: backtests
+    health:
+      port: 9000
+  candlesticks:
+    image: digital-feather/cryptellation:latest
+    sqldb:
+      database: candlesticks
+    health:
+      port: 9000
+  exchanges:
+    image: digital-feather/cryptellation:latest
+    sqldb:
+      database: exchanges
+    health:
+      port: 9000
+  ticks:
+    image: digital-feather/cryptellation:latest
+    sqldb:
+      database: ticks
+    health:
+      port: 9000
