@@ -22,11 +22,11 @@ spec:
         livenessProbe:
           httpGet:
             path: /liveness
-            port: {{ .Values.services.exchanges.health.port | default 9000 }}
+            port: {{ (.Values.services.exchanges.health).port | default 9000 }}
         readinessProbe:
           httpGet:
             path: /readiness
-            port: {{ .Values.services.exchanges.health.port | default 9000 }}
+            port: {{ (.Values.services.exchanges.health).port | default 9000 }}
         command: [ "cryptellation-exchanges", "serve" ]
         env:
         - name: "BINANCE_API_KEY"
@@ -54,60 +54,15 @@ spec:
             configMapKeyRef:
               key:  nats.port
               name: cryptellation-credentials
-        - name: "SQLDB_USER"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.user
-              name: cryptellation-credentials
-        - name: "SQLDB_PASSWORD"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.password
-              name: cryptellation-credentials
-        - name: "SQLDB_HOST"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.host
-              name: cryptellation-credentials
-        - name: "SQLDB_PORT"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.port
-              name: cryptellation-credentials
-        - name: "SQLDB_DATABASE"
-          valueFrom:
-            configMapKeyRef:
-              key:  exchanges.sqldb.database
-              name: cryptellation-config
+        {{- include "common.env" "exchanges" | indent 8 }}
         resources: {}
       initContainers:
-      - name: init-exchanges-sqldb
+      {{- include "dependencies.cockroachdb.init-container" . | indent 6 }}
+      - name: init-sql-database
         image: {{ .Values.services.exchanges.image }}
         command: [ "cryptellation-exchanges", "migrations", "migrate" ]
         env:
-        - name: "SQLDB_USER"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.user
-              name: cryptellation-credentials
-        - name: "SQLDB_PASSWORD"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.password
-              name: cryptellation-credentials
-        - name: "SQLDB_HOST"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.host
-              name: cryptellation-credentials
-        - name: "SQLDB_PORT"
-          valueFrom:
-            configMapKeyRef:
-              key:  sqldb.port
-              name: cryptellation-credentials
-        - name: "SQLDB_DATABASE"
-          valueFrom:
-            configMapKeyRef:
-              key:  exchanges.sqldb.database
-              name: cryptellation-config
+        {{- include "common.env" "exchanges" | indent 8 }}
+      volumes:
+        {{- include "dependencies.cockroachdb.volumes" . | indent 8 }}
 status: {}
