@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"syscall"
 
-	asyncapi "github.com/lerenn/cryptellation/api/asyncapi/ticks"
+	"github.com/lerenn/cryptellation/internal/core/ticks"
+	"github.com/lerenn/cryptellation/internal/ctrl/ticks/events"
+	"github.com/lerenn/cryptellation/internal/infra/ticks/db/sql"
+	natsAdapter "github.com/lerenn/cryptellation/internal/infra/ticks/events/nats"
+	exchanges "github.com/lerenn/cryptellation/internal/infra/ticks/exchanges"
 	"github.com/lerenn/cryptellation/pkg/config"
 	"github.com/lerenn/cryptellation/pkg/http/health"
-	"github.com/lerenn/cryptellation/services/ticks"
-	"github.com/lerenn/cryptellation/services/ticks/io/db/adapters/sql"
-	natsAdapter "github.com/lerenn/cryptellation/services/ticks/io/events/adapters/nats"
-	exchanges "github.com/lerenn/cryptellation/services/ticks/io/exchanges/adapters"
 	"github.com/spf13/cobra"
 )
 
@@ -52,7 +52,7 @@ func initApp() (ticks.Interface, error) {
 
 func initController(component ticks.Interface) (func(), error) {
 	// Init NATS controller
-	natsController, err := asyncapi.NewNATS(config.LoadNATSConfigFromEnv(), component)
+	natsController, err := events.NewNATS(config.LoadNATSConfigFromEnv(), component)
 	if err != nil {
 		return func() {}, err
 	}

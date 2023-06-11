@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	asyncapi "github.com/lerenn/cryptellation/api/asyncapi/candlesticks"
 	client "github.com/lerenn/cryptellation/clients/go"
-	"github.com/lerenn/cryptellation/pkg/candlestick"
+	"github.com/lerenn/cryptellation/internal/ctrl/candlesticks/events"
 	"github.com/lerenn/cryptellation/pkg/config"
+	"github.com/lerenn/cryptellation/pkg/models/candlestick"
 	"github.com/nats-io/nats.go"
 )
 
 type Candlesticks struct {
 	nats *nats.Conn
-	ctrl *asyncapi.ClientController
+	ctrl *events.ClientController
 }
 
 func NewCandlesticks(c config.NATS) (client.Candlesticks, error) {
@@ -22,7 +22,7 @@ func NewCandlesticks(c config.NATS) (client.Candlesticks, error) {
 		return nil, err
 	}
 
-	ctrl, err := asyncapi.NewClientController(asyncapi.NewNATSController(conn))
+	ctrl, err := events.NewClientController(events.NewNATSController(conn))
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func NewCandlesticks(c config.NATS) (client.Candlesticks, error) {
 
 func (c Candlesticks) Read(ctx context.Context, payload client.ReadCandlesticksPayload) (*candlestick.List, error) {
 	// Set message
-	reqMsg := asyncapi.NewCandlesticksListRequestMessage()
+	reqMsg := events.NewCandlesticksListRequestMessage()
 	reqMsg.Set(payload)
 
 	// Send request

@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	client "github.com/lerenn/cryptellation/clients/go"
-	tick "github.com/lerenn/cryptellation/pkg/tick"
 	gomock "github.com/golang/mock/gomock"
+	client "github.com/lerenn/cryptellation/clients/go"
+	tick "github.com/lerenn/cryptellation/pkg/models/tick"
 )
 
 // MockTicks is a mock of Ticks interface.
