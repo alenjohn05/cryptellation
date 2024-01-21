@@ -1,26 +1,20 @@
-.DEFAULT_GOAL  := help
-
-DAGGER_COMMAND := _EXPERIMENTAL_DAGGER_INTERACTIVE_TUI=true dagger run go run ./build/ci/dagger.go
-
-.PHONY: build
-build: ## Run the build
-	@${DAGGER_COMMAND} build
+.DEFAULT_GOAL := help
 
 .PHONY: ci
-ci: ## Run the CI
-	@${DAGGER_COMMAND} all
-
-.PHONY: lint
-lint: ## Lint the code
-	@${DAGGER_COMMAND} linter
+ci: ## Execute all basic CI steps
+	@dagger run go run ./cmd/ci
 
 .PHONY: generate
-generate: ## Generate specified code across the codebase
-	@${DAGGER_COMMAND} generator
+generate: ## Generate code files
+	@dagger run go run ./cmd/ci generate
 
-.PHONY: test
-test: ## Run tests
-	@${DAGGER_COMMAND} test
+.PHONY: lint
+lint: ## Lint code
+	@dagger run go run ./cmd/ci lint
+
+.PHONY: serve 
+serve: ## Serve the Cryptellation stack for development
+	@dagger run go run ./cmd/ci serve
 
 .PHONY: help
 help: ## Display this help message

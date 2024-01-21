@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	client "github.com/lerenn/cryptellation/clients/go"
-	"github.com/lerenn/cryptellation/pkg/models/candlestick"
-	"github.com/lerenn/cryptellation/pkg/models/period"
 	"github.com/lerenn/cryptellation/pkg/utils"
+	client "github.com/lerenn/cryptellation/svc/candlesticks/clients/go"
+	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/candlestick"
+	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/period"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,23 @@ var candlesticksReadCmd = &cobra.Command{
 	},
 }
 
+var candlesticksInfoCmd = &cobra.Command{
+	Use:     "info",
+	Aliases: []string{"info"},
+	Short:   "Read info from candlesticks service",
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		info, err := services.Candlesticks.ServiceInfo(context.TODO())
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("%+v\n", info)
+		return nil
+	},
+}
+
 func initCandlesticks(rootCmd *cobra.Command) {
 	candlesticksCmd.AddCommand(candlesticksReadCmd)
+	candlesticksCmd.AddCommand(candlesticksInfoCmd)
 	rootCmd.AddCommand(candlesticksCmd)
 }

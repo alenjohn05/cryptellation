@@ -2,43 +2,53 @@ package nats
 
 import (
 	"context"
+	"fmt"
 
-	client "github.com/lerenn/cryptellation/clients/go"
 	"github.com/lerenn/cryptellation/pkg/config"
+	backtests "github.com/lerenn/cryptellation/svc/backtests/clients/go/nats"
+	candlesticks "github.com/lerenn/cryptellation/svc/candlesticks/clients/go/nats"
+	exchanges "github.com/lerenn/cryptellation/svc/exchanges/clients/go/nats"
+	indicators "github.com/lerenn/cryptellation/svc/indicators/clients/go/nats"
+	ticks "github.com/lerenn/cryptellation/svc/ticks/clients/go/nats"
 )
 
 type Services struct {
-	Backtests    client.Backtests
-	Candlesticks client.Candlesticks
-	Exchanges    client.Exchanges
-	Indicators   client.Indicators
-	Ticks        client.Ticks
+	Backtests    backtests.Client
+	Candlesticks candlesticks.Client
+	Exchanges    exchanges.Client
+	Indicators   indicators.Client
+	Ticks        ticks.Client
 }
 
 func NewServices(c config.NATS) (Services, error) {
-	backtests, err := NewBacktests(c)
-	if err != nil {
+	// Check the configuration before creating clients
+	if err := c.Validate(); err != nil {
 		return Services{}, err
 	}
 
-	candlesticks, err := NewCandlesticks(c)
+	backtests, err := backtests.NewClient(c)
 	if err != nil {
-		return Services{}, err
+		return Services{}, fmt.Errorf("error when creating new backtests client: %w", err)
 	}
 
-	exchanges, err := NewExchanges(c)
+	candlesticks, err := candlesticks.NewClient(c)
 	if err != nil {
-		return Services{}, err
+		return Services{}, fmt.Errorf("error when creating new candlesticks client: %w", err)
 	}
 
-	indicators, err := NewIndicators(c)
+	exchanges, err := exchanges.NewClient(c)
 	if err != nil {
-		return Services{}, err
+		return Services{}, fmt.Errorf("error when creating new exchanges client: %w", err)
 	}
 
-	ticks, err := NewTicks(c)
+	indicators, err := indicators.NewClient(c)
 	if err != nil {
-		return Services{}, err
+		return Services{}, fmt.Errorf("error when creating new indicators client: %w", err)
+	}
+
+	ticks, err := ticks.NewClient(c)
+	if err != nil {
+		return Services{}, fmt.Errorf("error when creating new ticks client: %w", err)
 	}
 
 	return Services{
