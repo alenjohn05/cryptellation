@@ -63,14 +63,22 @@ func (a *App) Init() tea.Cmd {
 	return tea.ClearScreen
 }
 
+func (a App) moveCount() int {
+	return a.windowSize.Width * 2 / 3
+}
+
 func (a *App) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Left):
-			a.canvas.MoveLeft()
+			for i := 0; i < a.moveCount(); i++ {
+				a.canvas.MoveLeft()
+			}
 		case key.Matches(msg, keys.Right):
-			a.canvas.MoveRight()
+			for i := 0; i < a.moveCount(); i++ {
+				a.canvas.MoveRight()
+			}
 		case key.Matches(msg, keys.Help):
 			a.help.ShowAll = !a.help.ShowAll
 		case key.Matches(msg, keys.Quit):
@@ -111,7 +119,7 @@ func (a *App) updateMissingCandlesticks() {
 			if err != nil {
 				return
 			}
-			a.candlesticks.UpsertData(list)
+			_ = a.candlesticks.UpsertData(list)
 			a.Program.Send(dataUpdate{})
 		}()
 	}

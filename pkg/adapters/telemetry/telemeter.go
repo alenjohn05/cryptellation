@@ -16,9 +16,17 @@ type Telemeter interface {
 }
 
 type Logger interface {
-	Info(text string)
 	Debug(text string)
+	Debugf(format string, a ...any)
+
+	Info(text string)
+	Infof(format string, a ...any)
+
+	Warning(text string)
+	Warningf(format string, a ...any)
+
 	Error(text string)
+	Errorf(format string, a ...any)
 }
 
 type Tracer interface {
