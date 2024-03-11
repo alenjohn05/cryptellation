@@ -1,8 +1,9 @@
-package main
+package views
 
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -17,6 +18,8 @@ import (
 	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/period"
 )
 
+type candlesticksDataUpdate struct{}
+
 type CandlesticksView struct {
 	client           candlesticksclient.Client
 	updateInProgress bool
@@ -24,23 +27,35 @@ type CandlesticksView struct {
 	chart            *candlesticks.Chart
 	windowSize       tea.WindowSizeMsg
 
+	exchange string
+	pair     string
+	period   period.Symbol
+
 	program *tea.Program
 }
 
-func NewCandlesticksView(program *tea.Program) *CandlesticksView {
+func NewCandlesticksView(program *tea.Program, exchange, pair, periodSymbol string) *CandlesticksView {
 	candlesticksClient, err := candlesticksclient.NewClient(config.LoadNATS())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	cv := &CandlesticksView{
-		client:  candlesticksClient,
-		program: program,
+	per := period.Symbol(strings.ToUpper(periodSymbol))
+	if err := per.Validate(); err != nil {
+		log.Fatal(err)
 	}
 
-	cv.chart = candlesticks.NewChart(&candlestick.List{}, period.H1)
+	cv := &CandlesticksView{
+		client:   candlesticksClient,
+		program:  program,
+		exchange: strings.ToLower(exchange),
+		pair:     strings.ToUpper(pair),
+		period:   per,
+	}
 
-	cv.canvas = charts.NewCanvas(utils.Must(time.Parse(time.RFC3339, "2022-12-01T01:00:00Z")), time.Hour)
+	cv.chart = candlesticks.NewChart(&candlestick.List{}, per)
+
+	cv.canvas = charts.NewCanvas(utils.Must(time.Parse(time.RFC3339, "2024-01-01T01:00:00Z")), per.Duration())
 	cv.canvas.AddChart(cv.chart)
 
 	return cv
@@ -82,23 +97,26 @@ func (cv *CandlesticksView) updateMissingCandlesticks() {
 			defer func() { cv.updateInProgress = false }()
 
 			delta := time.Duration(cv.windowSize.Width)
-			first = utils.ToReference(first.Add(-time.Hour * delta))
-			last = utils.ToReference(last.Add(time.Hour * delta))
+			first = utils.ToReference(first.Add(-cv.period.Duration() * delta))
+			last = utils.ToReference(last.Add(cv.period.Duration() * delta))
 
 			list, err := cv.client.Read(context.TODO(), client.ReadCandlesticksPayload{
-				Exchange: "binance",
-				Pair:     "ETH-USDT",
-				Period:   period.H1,
+				Exchange: cv.exchange,
+				Pair:     cv.pair,
+				Period:   cv.period,
 				Start:    first,
 				End:      last,
 			})
 			if err != nil {
 				return
 			}
-			_ = cv.chart.UpsertData(list)
+
+			if err := cv.chart.UpsertData(list); err != nil {
+				log.Fatal(err)
+			}
 
 			// Send the main program an update
-			cv.program.Send(dataUpdate{})
+			cv.program.Send(candlesticksDataUpdate{})
 		}()
 	}
 }
