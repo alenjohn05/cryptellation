@@ -1,20 +1,11 @@
+include:
+  - ../../../deployments/docker-compose/dependencies.docker-compose.yaml
+
 services:
-  exchanges-sql:
-    image: postgres:15.3
-    networks:
-      - cryptellation
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: example
-      POSTGRES_DB: exchanges
-    expose:
-      - "5432"
-    ports:
-      - "6002:5432"
   exchanges-api:
     image: cosmtrek/air
     depends_on:
-      - exchanges-sql
+      - mongo
       - nats
       - uptrace-otelcollector
     networks:
@@ -23,13 +14,10 @@ services:
     environment:
       DEV_MODE: true
       HEALTH_PORT: 9000
+      MONGO_CONNECTION_STRING: mongodb://mongo:27017
+      MONGO_DATABASE: cryptellation-exchanges
       NATS_HOST: nats
       NATS_PORT: 4222
-      OPENTELEMETRY_GRPC_ENDPOINT: uptrace-otelcollector:4317
-      SQLDB_HOST: exchanges-sql
-      SQLDB_PORT: 5432
-      SQLDB_USER: postgres
-      SQLDB_PASSWORD: example
       SQLDB_DATABASE: exchanges
     env_file:
       - path: ../../../.credentials.env

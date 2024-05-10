@@ -12,10 +12,12 @@ go/test/unit: ## Launch unit tests
 
 .PHONY: go/test/integration
 go/test/integration: ## Launch integration tests
-	@go run ./cmd/data migrations migrate
 	@go test ./internal/adapters/...
 
 .PHONY: go/test/end-to-end
 go/test/end-to-end: ## Launch end-to-end tests
-	@go run ./cmd/data migrations migrate
 	@go test ./test/...
+
+.PHONY: go/update
+go/update: ## Update Go modules
+	@go mod tidy
