@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/lerenn/cryptellation/svc/backtests/pkg/account"
+	"github.com/lerenn/cryptellation/pkg/models/account"
+	"github.com/lerenn/cryptellation/pkg/models/order"
 	"github.com/lerenn/cryptellation/svc/backtests/pkg/backtest"
-	"github.com/lerenn/cryptellation/svc/backtests/pkg/order"
 )
 
 type Backtests interface {

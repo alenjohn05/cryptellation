@@ -1,7 +1,7 @@
 // Backtests
-//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g application -p asyncapi -i ../asyncapi.yaml -o ./app.gen.go
-//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g user        -p asyncapi -i ../asyncapi.yaml -o ./user.gen.go
-//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g types       -p asyncapi -i ../asyncapi.yaml -o ./types.gen.go
+//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g application -p asyncapi -i ../asyncapi.yaml,../../../../pkg/asyncapi/models.yaml -o ./app.gen.go
+//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g user        -p asyncapi -i ../asyncapi.yaml,../../../../pkg/asyncapi/models.yaml -o ./user.gen.go
+//go:generate go run github.com/lerenn/asyncapi-codegen/cmd/asyncapi-codegen@v0.39.0 -g types       -p asyncapi -i ../asyncapi.yaml,../../../../pkg/asyncapi/models.yaml -o ./types.gen.go
 
 package asyncapi
 
@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lerenn/cryptellation/pkg/event"
+	"github.com/lerenn/cryptellation/pkg/models/account"
+	"github.com/lerenn/cryptellation/pkg/models/event"
 	"github.com/lerenn/cryptellation/pkg/utils"
 	client "github.com/lerenn/cryptellation/svc/backtests/clients/go"
-	"github.com/lerenn/cryptellation/svc/backtests/pkg/account"
 	"github.com/lerenn/cryptellation/svc/backtests/pkg/backtest"
 	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/period"
 	"github.com/lerenn/cryptellation/svc/ticks/pkg/tick"
@@ -22,28 +22,6 @@ func (msg *CreateRequestMessage) Set(payload client.BacktestCreationPayload) {
 	msg.Payload.StartTime = DateSchema(payload.StartTime)
 	msg.Payload.EndTime = (*DateSchema)(payload.EndTime)
 	msg.Payload.Accounts = accountModelsToAPI(payload.Accounts)
-}
-
-func accountModelsToAPI(accounts map[string]account.Account) []AccountSchema {
-	apiAccounts := make([]AccountSchema, 0, len(accounts))
-	for accName, acc := range accounts {
-		// Set assets
-		assets := make([]AssetSchema, 0, len(acc.Balances))
-		for assetName, amount := range acc.Balances {
-			assets = append(assets, AssetSchema{
-				Name:   assetName,
-				Amount: amount,
-			})
-		}
-
-		// Set account
-		apiAccounts = append(apiAccounts, AccountSchema{
-			Name:   accName,
-			Assets: assets,
-		})
-	}
-
-	return apiAccounts
 }
 
 func (msg *SubscribeRequestMessage) Set(backtestID uuid.UUID, exchange, pair string) {

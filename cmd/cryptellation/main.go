@@ -37,6 +37,7 @@ func init() {
 	initBacktests(CryptellationCmd)
 	initCandlesticks(CryptellationCmd)
 	initExchanges(CryptellationCmd)
+	initForwardTests(CryptellationCmd)
 	initIndicators(CryptellationCmd)
 	initTicks(CryptellationCmd)
 

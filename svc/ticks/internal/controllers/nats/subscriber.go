@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 
+	"github.com/lerenn/cryptellation/pkg/adapters/telemetry"
 	"github.com/lerenn/cryptellation/pkg/version"
 	"github.com/lerenn/cryptellation/svc/ticks/api/asyncapi"
 	"github.com/lerenn/cryptellation/svc/ticks/internal/app"
@@ -29,5 +30,6 @@ func (s subscriber) ServiceInfoOperationReceived(ctx context.Context, msg asynca
 	return s.controller.ReplyToServiceInfoOperation(ctx, msg, func(replyMsg *asyncapi.ServiceInfoResponseMessage) {
 		replyMsg.Payload.ApiVersion = asyncapi.AsyncAPIVersion
 		replyMsg.Payload.BinVersion = version.Version()
+		telemetry.L(ctx).Debugf("Request for service info received, replying with %+v", replyMsg.Payload)
 	})
 }

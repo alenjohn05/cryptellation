@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lerenn/cryptellation/pkg/models/order"
 	"github.com/lerenn/cryptellation/pkg/utils"
 	client "github.com/lerenn/cryptellation/svc/backtests/clients/go"
-	"github.com/lerenn/cryptellation/svc/backtests/pkg/order"
 )
 
 func (msg *OrdersListResponseMessage) Set(orders []order.Order) {
