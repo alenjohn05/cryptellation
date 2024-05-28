@@ -38,19 +38,19 @@ func NewServices(c config.NATS) (client Services, err error) {
 	}
 	client.backtests = backtests
 
-	candlesticks, err := natscandlesticks.NewClient(c)
+	cds, err := natscandlesticks.NewClient(c)
 	if err != nil {
 		client.Close(context.TODO())
 		return
 	}
-	client.candlesticks = candlesticks
+	client.candlesticks = candlesticks.NewCachedClient(cds, candlesticks.DefaultCacheParameters())
 
-	exchanges, err := natsexchanges.NewClient(c)
+	exchgs, err := natsexchanges.NewClient(c)
 	if err != nil {
 		client.Close(context.TODO())
 		return
 	}
-	client.exchanges = exchanges
+	client.exchanges = exchanges.NewCachedClient(exchgs, exchanges.DefaultCacheParameters())
 
 	forwardtests, err := natsforwardtests.NewClient(c)
 	if err != nil {
@@ -59,12 +59,12 @@ func NewServices(c config.NATS) (client Services, err error) {
 	}
 	client.forwardtests = forwardtests
 
-	indicators, err := natsindicators.NewClient(c)
+	idts, err := natsindicators.NewClient(c)
 	if err != nil {
 		client.Close(context.TODO())
 		return
 	}
-	client.indicators = indicators
+	client.indicators = indicators.NewCachedClient(idts, indicators.DefaultCacheParameters())
 
 	ticks, err := natsticks.NewClient(c)
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"github.com/bluele/gcache"
 	client "github.com/lerenn/cryptellation/pkg/client"
 	"github.com/lerenn/cryptellation/pkg/models/timeserie"
-	"github.com/lerenn/cryptellation/pkg/utils"
 	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/candlestick"
 	"github.com/lerenn/cryptellation/svc/candlesticks/pkg/period"
 )
@@ -16,15 +15,17 @@ import (
 var _ Client = (*CachedClient)(nil)
 
 type cacheKey struct {
-	Exchange  string
-	Pair      string
-	Period    period.Symbol
-	Timestamp int64
+	Exchange     string
+	Pair         string
+	Period       period.Symbol
+	PeriodNumber uint
+	PriceType    candlestick.PriceType
+	Timestamp    int64
 }
 
 type CachedClient struct {
 	controller Client
-	cache      gcache.Cache
+	smaCache   gcache.Cache
 	parameters CacheParameters
 }
 
@@ -51,39 +52,26 @@ func DefaultCacheParameters() CacheParameters {
 func NewCachedClient(controller Client, params CacheParameters) *CachedClient {
 	return &CachedClient{
 		controller: controller,
-		cache:      gcache.New(params.MaxSize).LRU().Build(),
+		smaCache:   gcache.New(params.MaxSize).LRU().Build(),
 		parameters: params,
 	}
 }
 
-type ReadCandlesticksPayload struct {
-	Exchange string
-	Pair     string
-	Period   period.Symbol
-	Start    *time.Time
-	End      *time.Time
-	Limit    uint
-}
-
-func (client *CachedClient) Read(ctx context.Context, payload ReadCandlesticksPayload) (*candlestick.List, error) {
-	list := candlestick.NewList(payload.Exchange, payload.Pair, payload.Period)
-
-	if payload.Start == nil {
-		return nil, errors.New("payload.Start is required")
-	} else if payload.End == nil {
-		return nil, errors.New("payload.End is required")
-	}
+func (client *CachedClient) SMA(ctx context.Context, payload SMAPayload) (*timeserie.TimeSerie[float64], error) {
+	list := timeserie.New[float64]()
 
 	// Get missing times
-	missingTimes := make([]time.Time, 0, payload.Period.CountBetweenTimes(*payload.Start, *payload.End))
-	for current := *payload.Start; !current.After(*payload.End); current = current.Add(payload.Period.Duration()) {
+	missingTimes := make([]time.Time, 0, payload.Period.CountBetweenTimes(payload.Start, payload.End))
+	for current := payload.Start; !current.After(payload.End); current = current.Add(payload.Period.Duration()) {
 		key := cacheKey{
-			Exchange:  payload.Exchange,
-			Pair:      payload.Pair,
-			Period:    payload.Period,
-			Timestamp: current.Unix(),
+			Exchange:     payload.Exchange,
+			Pair:         payload.Pair,
+			Period:       payload.Period,
+			PeriodNumber: payload.PeriodNumber,
+			PriceType:    payload.PriceType,
+			Timestamp:    current.Unix(),
 		}
-		c, err := client.cache.Get(key)
+		p, err := client.smaCache.Get(key)
 		if errors.Is(err, gcache.KeyNotFoundError) { // If not present in cache
 			missingTimes = append(missingTimes, current)
 			continue
@@ -91,17 +79,14 @@ func (client *CachedClient) Read(ctx context.Context, payload ReadCandlesticksPa
 			return nil, err
 		}
 
-		// Check if uncomplete
-		cd := c.(candlestick.Candlestick)
-		if cd.Uncomplete {
+		// Check that it is not now
+		if current.Equal(payload.Period.RoundTime(time.Now())) {
 			missingTimes = append(missingTimes, current)
 			continue
 		}
 
 		// Add to list
-		if err := list.Set(current, cd); err != nil {
-			return nil, err
-		}
+		_ = list.Set(current, p.(float64))
 	}
 
 	// Change to time ranges and return if none
@@ -112,35 +97,37 @@ func (client *CachedClient) Read(ctx context.Context, payload ReadCandlesticksPa
 
 	// Generate new payload with extended time ranges
 	newPayload := payload
-	newPayload.Start = utils.ToReference(tr[0].Start.Add(-payload.Period.Duration() * time.Duration(client.parameters.PreLoadingBeforeSize)))
-	newPayload.End = utils.ToReference(tr[len(tr)-1].End.Add(payload.Period.Duration() * time.Duration(client.parameters.PreLoadingAfterSize)))
+	newPayload.Start = tr[0].Start.Add(-payload.Period.Duration() * time.Duration(client.parameters.PreLoadingBeforeSize))
+	newPayload.End = tr[len(tr)-1].End.Add(payload.Period.Duration() * time.Duration(client.parameters.PreLoadingAfterSize))
 
 	// Get missing times
-	missing, err := client.controller.Read(ctx, newPayload)
+	missing, err := client.controller.SMA(ctx, newPayload)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add missing times to cache
-	if err := missing.Loop(func(t time.Time, c candlestick.Candlestick) (bool, error) {
+	if err := missing.Loop(func(t time.Time, p float64) (bool, error) {
 		key := cacheKey{
-			Exchange:  payload.Exchange,
-			Pair:      payload.Pair,
-			Period:    payload.Period,
-			Timestamp: t.Unix(),
+			Exchange:     payload.Exchange,
+			Pair:         payload.Pair,
+			Period:       payload.Period,
+			PeriodNumber: payload.PeriodNumber,
+			PriceType:    payload.PriceType,
+			Timestamp:    t.Unix(),
 		}
-		return false, client.cache.Set(key, c)
+		return false, client.smaCache.Set(key, p)
 	}); err != nil {
 		return nil, err
 	}
 
 	// Merge missing times
-	if err := list.Merge(missing, &timeserie.MergeOptions{}); err != nil {
+	if err := list.Merge(*missing, &timeserie.MergeOptions{}); err != nil {
 		return nil, err
 	}
 
 	// Exctract only requested
-	return list.Extract(*payload.Start, *payload.End, 0), nil
+	return list.Extract(payload.Start, payload.End, 0), nil
 }
 
 func (client *CachedClient) ServiceInfo(ctx context.Context) (client.ServiceInfo, error) {
@@ -148,6 +135,6 @@ func (client *CachedClient) ServiceInfo(ctx context.Context) (client.ServiceInfo
 }
 
 func (client *CachedClient) Close(ctx context.Context) {
-	client.cache.Purge()
+	client.smaCache.Purge()
 	client.controller.Close(ctx)
 }
