@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lerenn/cryptellation/pkg/adapters/telemetry"
-	"github.com/lerenn/cryptellation/pkg/controllers/http"
+	"cryptellation/internal/adapters/telemetry"
+	"cryptellation/internal/controllers/http"
 )
 
 type Daemon struct {
@@ -27,7 +27,6 @@ func New(ctx context.Context) (Daemon, error) {
 	if err != nil {
 		return Daemon{}, err
 	}
-	go h.HTTPServe(ctx)
 
 	// Init adapters
 	adapters, err := newAdapters(ctx)
@@ -63,6 +62,9 @@ func (d Daemon) Serve(ctx context.Context) error {
 	// Listen interruptions
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	// Serving health server
+	go d.health.HTTPServe(ctx)
 
 	// Service marked as ready
 	telemetry.L(ctx).Info("Service is ready")

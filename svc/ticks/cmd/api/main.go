@@ -4,10 +4,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/lerenn/cryptellation/pkg/adapters/telemetry"
-	"github.com/lerenn/cryptellation/pkg/adapters/telemetry/console"
-	"github.com/lerenn/cryptellation/pkg/adapters/telemetry/otel"
-	"github.com/lerenn/cryptellation/pkg/version"
+	"cryptellation/internal/adapters/telemetry"
+	"cryptellation/internal/adapters/telemetry/console"
+	"cryptellation/internal/adapters/telemetry/otel"
+	"cryptellation/pkg/version"
+
 	"github.com/spf13/cobra"
 )
 

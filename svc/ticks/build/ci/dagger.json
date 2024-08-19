@@ -1,0 +1,16 @@
+{
+  "name": "cryptellation-ticks-ci",
+  "sdk": "go",
+  "dependencies": [
+    {
+      "name": "cryptellation-internal",
+      "source": "../../../../internal"
+    },
+    {
+      "name": "cryptellation-ticks",
+      "source": "../.."
+    }
+  ],
+  "source": "dagger",
+  "engineVersion": "v0.12.5"
+}

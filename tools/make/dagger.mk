@@ -1,40 +1,38 @@
-DAGGER_CMD        := dagger run go run ./tools/ci
-
-ifndef TAGS
-	TAGS=""
-endif
-
-.PHONY: dagger/ci
-dagger/ci: ## Execute all basic CI steps
-	@$(DAGGER_CMD)
-
-.PHONY: dagger/generate
-dagger/generate: ## Generate code files
-	@$(DAGGER_CMD) generate
+.PHONY: dagger/check
+dagger/check: ## Run all checks through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) check \
+		--source-dir=$(PROJECT_ROOT_PATH) \
+		--secrets-file=file:$(PROJECT_ROOT_PATH)/.credentials.env \
+		stdout
 
 .PHONY: dagger/lint
-dagger/lint: ## Lint code
-	@$(DAGGER_CMD) lint
+dagger/lint: ## Run all linters through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) lint --source-dir=$(PROJECT_ROOT_PATH) stdout
+
+.PHONY: dagger/check-generation
+dagger/check-generation: ## Run all checks for generated code through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) check-generation --source-dir=$(PROJECT_ROOT_PATH) stdout
+
+.PHONY: dagger/unit-tests
+dagger/unit-tests: ## Run all unit tests through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) unit-tests --source-dir=$(PROJECT_ROOT_PATH) stdout
+
+.PHONY: dagger/integration-tests
+dagger/integration-tests: ## Run all integration tests through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) integration-tests \
+		--source-dir=$(PROJECT_ROOT_PATH) \
+		--secrets-file=file:$(PROJECT_ROOT_PATH)/.credentials.env \
+		stdout
+
+.PHONY: dagger/end-to-end-tests
+dagger/end-to-end-tests: ## Run all end-to-end tests through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) end-to-end-tests \
+		--source-dir=$(PROJECT_ROOT_PATH) \
+		--secrets-file=file:$(PROJECT_ROOT_PATH)/.credentials.env \
+		stdout
 
 .PHONY: dagger/publish
-dagger/publish: ## Publish new tag on git, docker hub, etc.
-	@$(DAGGER_CMD) publish --tags ${TAGS}
-
-.PHONY: dagger/dagger/test
-dagger/test: test/unit test/integration test/end-to-end ## Launch tests 
-
-.PHONY: dagger/test/unit
-dagger/test/unit: ## Launch unit tests
-	@$(DAGGER_CMD) test --type=unit
-
-.PHONY: dagger/test/integration
-dagger/test/integration: ## Launch integration tests
-	@$(DAGGER_CMD) test --type=integration
-
-.PHONY: dagger/test/end-to-end
-dagger/test/end-to-end: ## Launch end-to-end tests
-	@$(DAGGER_CMD) test --type=end-to-end
-
-.PHONY: dagger/update
-dagger/update: ## Update the dependencies
-	@$(DAGGER_CMD) update
+dagger/publish: ## Publish the project through Dagger
+	@dagger call -m $(DAGGER_MODULE_PATH) publish \
+		--source-dir=$(PROJECT_ROOT_PATH) \
+		--ssh-private-key-file=file:~/.ssh/id_rsa

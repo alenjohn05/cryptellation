@@ -1,0 +1,12 @@
+{
+  "name": "cryptellation-exchanges",
+  "sdk": "go",
+  "dependencies": [
+    {
+      "name": "cryptellation-internal",
+      "source": "../../internal"
+    }
+  ],
+  "source": "pkg/dagger",
+  "engineVersion": "v0.12.5"
+}
