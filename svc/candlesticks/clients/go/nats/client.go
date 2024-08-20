@@ -5,9 +5,9 @@ import (
 	"time"
 
 	helpers "cryptellation/internal/asyncapi"
-	"cryptellation/internal/config"
 	"cryptellation/pkg/adapters/telemetry"
 	common "cryptellation/pkg/client"
+	"cryptellation/pkg/config"
 
 	asyncapi "cryptellation/svc/candlesticks/api/asyncapi"
 	client "cryptellation/svc/candlesticks/clients/go"

@@ -6,10 +6,10 @@ import (
 
 	cryptellation "cryptellation/client"
 
-	"cryptellation/internal/config"
 	"cryptellation/pkg/adapters/telemetry"
 	"cryptellation/pkg/adapters/telemetry/console"
 	"cryptellation/pkg/adapters/telemetry/otel"
+	"cryptellation/pkg/config"
 	"cryptellation/pkg/models/account"
 	"cryptellation/pkg/utils"
 

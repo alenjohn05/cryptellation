@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"cryptellation/internal/controllers/http"
 	"cryptellation/pkg/adapters/telemetry"
+	"cryptellation/pkg/controllers/http"
 )
 
 type Daemon struct {
