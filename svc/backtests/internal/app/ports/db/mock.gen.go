@@ -6,10 +6,10 @@ package db
 
 import (
 	context "context"
-	backtest "cryptellation/svc/backtests/pkg/backtest"
 	reflect "reflect"
 
 	uuid "github.com/google/uuid"
+	backtest "github.com/lerenn/cryptellation/client/pkg/backtest"
 	gomock "go.uber.org/mock/gomock"
 )
 
